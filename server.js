@@ -3,7 +3,9 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 const app = express();
-const PORT = process.env.PORT || 3000;
+
+// Always use Railway's injected PORT, fallback to 8080 locally
+const PORT = process.env.PORT || 8080;
 
 // Middleware
 app.use(express.json());
@@ -13,6 +15,8 @@ app.get('/health', (req, res) => {
   res.json({ status: "OK", message: "ShortID API is running" });
 });
 
+// Start server
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
+
