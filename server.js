@@ -4,8 +4,11 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 8080;
 
+// Let Render control the port
+const PORT = process.env.PORT || 10000;
+
+// Middleware
 app.use(express.json());
 
 // Root route
@@ -18,13 +21,13 @@ app.get('/health', (req, res) => {
   res.json({ status: "OK", message: "ShortID API is running" });
 });
 
-// Your other routes here
-// const shortidRoutes = require('./routes/shortid');
-// app.use('/api', shortidRoutes);
-
+// Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch(err => console.error("❌ MongoDB error:", err.message));
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Start server
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
