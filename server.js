@@ -1,36 +1,30 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-
 dotenv.config();
-const app = express();
 
-// Always use Railway's injected PORT, fallback to 8080 locally
+const app = express();
 const PORT = process.env.PORT || 8080;
 
-// Middleware
 app.use(express.json());
 
-// Health check endpoint (always available)
+// Root route
+app.get('/', (req, res) => {
+  res.json({ message: "ShortID API is running 🚀" });
+});
+
+// Health check
 app.get('/health', (req, res) => {
   res.json({ status: "OK", message: "ShortID API is running" });
 });
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => {
-  console.log("✅ Connected to MongoDB successfully");
-})
-.catch(err => {
-  console.error("❌ MongoDB connection error:", err.message);
-});
+// Your other routes here
+// const shortidRoutes = require('./routes/shortid');
+// app.use('/api', shortidRoutes);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log("✅ Connected to MongoDB"))
+  .catch(err => console.error("❌ MongoDB error:", err.message));
 
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
