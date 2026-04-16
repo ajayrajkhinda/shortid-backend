@@ -9,7 +9,12 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.options('*', cors());
 app.use(express.json());
 
 // ─── MODELS ───────────────────────────────────────────────
@@ -60,17 +65,14 @@ app.get('/health', (req, res) => res.json({ status: "OK", message: "ShortID API 
 
 // ─── HOTEL ROUTES ─────────────────────────────────────────
 
-// Register hotel
 app.post('/api/hotel/register', async (req, res) => {
   try {
     const { name, location, email, password } = req.body;
     const existing = await Hotel.findOne({ email });
     if (existing) return res.json({ success: false, error: 'Email already registered' });
-
     const hashed = await bcrypt.hash(password, 10);
     const hotelCode = 'HTL-' + Math.random().toString(36).substring(2, 8).toUpperCase();
     const hotel = await Hotel.create({ name, location, email, password: hashed, hotelCode });
-
     const token = jwt.sign({ id: hotel._id }, process.env.JWT_SECRET || 'shortid_secret', { expiresIn: '7d' });
     res.json({ success: true, token, hotel: { _id: hotel._id, name: hotel.name, location: hotel.location, email: hotel.email, hotelCode: hotel.hotelCode } });
   } catch (e) {
@@ -78,16 +80,13 @@ app.post('/api/hotel/register', async (req, res) => {
   }
 });
 
-// Login hotel
 app.post('/api/hotel/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     const hotel = await Hotel.findOne({ email });
     if (!hotel) return res.json({ success: false, error: 'Hotel not found' });
-
     const match = await bcrypt.compare(password, hotel.password);
     if (!match) return res.json({ success: false, error: 'Wrong password' });
-
     const token = jwt.sign({ id: hotel._id }, process.env.JWT_SECRET || 'shortid_secret', { expiresIn: '7d' });
     res.json({ success: true, token, hotel: { _id: hotel._id, name: hotel.name, location: hotel.location, email: hotel.email, hotelCode: hotel.hotelCode } });
   } catch (e) {
@@ -95,7 +94,6 @@ app.post('/api/hotel/login', async (req, res) => {
   }
 });
 
-// Get hotel profile
 app.get('/api/hotel/profile', authMiddleware, async (req, res) => {
   try {
     const hotel = await Hotel.findById(req.hotel.id).select('-password');
@@ -108,23 +106,18 @@ app.get('/api/hotel/profile', authMiddleware, async (req, res) => {
 
 // ─── SHARE ROUTES ─────────────────────────────────────────
 
-// Guest shares their ID with hotel (called from guest app)
 app.post('/api/share', async (req, res) => {
   try {
     const { hotelCode, sidNumber, guestName, guestPhone, guestDOB, guestGender, guestAddress } = req.body;
     const hotel = await Hotel.findOne({ hotelCode });
     if (!hotel) return res.json({ success: false, error: 'Hotel not found' });
-
-    const shared = await SharedID.create({
-      hotelId: hotel._id, sidNumber, guestName, guestPhone, guestDOB, guestGender, guestAddress
-    });
+    const shared = await SharedID.create({ hotelId: hotel._id, sidNumber, guestName, guestPhone, guestDOB, guestGender, guestAddress });
     res.json({ success: true, shared });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// Get all guests for a hotel
 app.get('/api/share/hotel/:hotelId', authMiddleware, async (req, res) => {
   try {
     const sharedIDs = await SharedID.find({ hotelId: req.params.hotelId }).sort({ sharedAt: -1 });
@@ -134,7 +127,6 @@ app.get('/api/share/hotel/:hotelId', authMiddleware, async (req, res) => {
   }
 });
 
-// Approve a guest check-in
 app.put('/api/share/approve/:id', authMiddleware, async (req, res) => {
   try {
     const shared = await SharedID.findByIdAndUpdate(req.params.id, { status: 'approved' }, { new: true });
@@ -144,7 +136,6 @@ app.put('/api/share/approve/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Update guest room/comments
 app.put('/api/share/update-guest/:id', authMiddleware, async (req, res) => {
   try {
     const { roomNumber, comments } = req.body;
