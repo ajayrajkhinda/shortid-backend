@@ -31,7 +31,9 @@ const Hotel = mongoose.model('Hotel', HotelSchema);
 
 const SharedIDSchema = new mongoose.Schema({
   hotelId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hotel' },
-  sidNumber: String,
+  hotelName: String,
+  hotelLocation: String,
+  sidNumber: String,       // permanent user SID
   guestName: String,
   guestPhone: String,
   guestDOB: String,
@@ -61,7 +63,7 @@ const authMiddleware = (req, res, next) => {
 // ─── HEALTH ───────────────────────────────────────────────
 
 app.get('/', (req, res) => res.json({ message: "ShortID API is running 🚀" }));
-app.get('/health', (req, res) => res.json({ status: "OK", message: "ShortID API is running" }));
+app.get('/health', (req, res) => res.json({ status: "OK" }));
 
 // ─── HOTEL ROUTES ─────────────────────────────────────────
 
@@ -106,18 +108,25 @@ app.get('/api/hotel/profile', authMiddleware, async (req, res) => {
 
 // ─── SHARE ROUTES ─────────────────────────────────────────
 
+// Guest shares ID with hotel
 app.post('/api/share', async (req, res) => {
   try {
     const { hotelCode, sidNumber, guestName, guestPhone, guestDOB, guestGender, guestAddress } = req.body;
     const hotel = await Hotel.findOne({ hotelCode });
-    if (!hotel) return res.json({ success: false, error: 'Hotel not found' });
-    const shared = await SharedID.create({ hotelId: hotel._id, sidNumber, guestName, guestPhone, guestDOB, guestGender, guestAddress });
+    if (!hotel) return res.json({ success: false, error: 'Hotel not found. Check the QR code.' });
+    const shared = await SharedID.create({
+      hotelId: hotel._id,
+      hotelName: hotel.name,
+      hotelLocation: hotel.location,
+      sidNumber, guestName, guestPhone, guestDOB, guestGender, guestAddress
+    });
     res.json({ success: true, shared });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
 });
 
+// Get all guests for a hotel (hotel portal)
 app.get('/api/share/hotel/:hotelId', authMiddleware, async (req, res) => {
   try {
     const sharedIDs = await SharedID.find({ hotelId: req.params.hotelId }).sort({ sharedAt: -1 });
@@ -127,6 +136,17 @@ app.get('/api/share/hotel/:hotelId', authMiddleware, async (req, res) => {
   }
 });
 
+// Get share history for a guest by phone number
+app.get('/api/share/guest/:phone', async (req, res) => {
+  try {
+    const shares = await SharedID.find({ guestPhone: req.params.phone }).sort({ sharedAt: -1 });
+    res.json({ success: true, shares });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Approve guest check-in
 app.put('/api/share/approve/:id', authMiddleware, async (req, res) => {
   try {
     const shared = await SharedID.findByIdAndUpdate(req.params.id, { status: 'approved' }, { new: true });
@@ -136,6 +156,7 @@ app.put('/api/share/approve/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// Update guest room/comments
 app.put('/api/share/update-guest/:id', authMiddleware, async (req, res) => {
   try {
     const { roomNumber, comments } = req.body;
@@ -153,5 +174,5 @@ mongoose.connect(process.env.MONGODB_URI)
   .catch(err => console.error("❌ MongoDB error:", err.message));
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT} - v2`);
+  console.log(`Server running on port ${PORT} - v3`);
 });
