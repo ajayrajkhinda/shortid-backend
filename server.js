@@ -48,6 +48,17 @@ const SharedIDSchema = new mongoose.Schema({
 }, { timestamps: true });
 const SharedID = mongoose.model('SharedID', SharedIDSchema);
 
+
+const UserSchema = new mongoose.Schema({
+  phone: { type: String, unique: true },
+  sid: { type: String, unique: true },
+  name: String,
+  dob: String,
+  gender: String,
+  address: String,
+}, { timestamps: true });
+const User = mongoose.model('User', UserSchema);
+
 // ─── MIDDLEWARE ───────────────────────────────────────────
 
 const authHotel = (req, res, next) => {
@@ -253,10 +264,61 @@ app.put('/api/share/update-guest/:id', authHotel, async (req, res) => {
   } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
+// ─── USER ROUTES ──────────────────────────────────────────
+
+// Check if user exists by phone (called after OTP verify)
+app.get('/api/user/:phone', async (req, res) => {
+  try {
+    const user = await User.findOne({ phone: req.params.phone });
+    if (user) {
+      res.json({ success: true, exists: true, user });
+    } else {
+      res.json({ success: true, exists: false });
+    }
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+// Register/save user profile
+app.post('/api/user/register', async (req, res) => {
+  try {
+    const { phone, sid, name, dob, gender, address } = req.body;
+    if (!phone || !sid || !name) return res.json({ success: false, error: 'Missing required fields' });
+    // Upsert — update if exists, create if not
+    const user = await User.findOneAndUpdate(
+      { phone },
+      { phone, sid, name, dob, gender, address },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true, user });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+// Update user profile
+app.put('/api/user/:phone', async (req, res) => {
+  try {
+    const { name, dob, gender, address } = req.body;
+    const user = await User.findOneAndUpdate(
+      { phone: req.params.phone },
+      { name, dob, gender, address },
+      { new: true }
+    );
+    if (!user) return res.json({ success: false, error: 'User not found' });
+    res.json({ success: true, user });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+// Admin: get all users
+app.get('/api/admin/users', authAdmin, async (req, res) => {
+  try {
+    const users = await User.find().sort({ createdAt: -1 });
+    res.json({ success: true, users });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
 // ─── START ────────────────────────────────────────────────
 
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch(err => console.error("❌ MongoDB error:", err.message));
 
-app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT} - v4`));
+app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT} - v5`));
